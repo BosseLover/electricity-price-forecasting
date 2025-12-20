@@ -24,8 +24,7 @@ df['WindSpeed']=df['WindSpeed']/3.6
 
 #print(df.head())
 
-X_lin= df[['Temperature','WindSpeed', 'Hour']]
-X_rf = df[['Temperature', 'WindSpeed', 'Hour', 'Month', 'Weekday']]
+X = df[['Temperature', 'WindSpeed', 'Hour', 'Month', 'Weekday']]
 
 y=df['PriceEUR']
 
@@ -76,12 +75,12 @@ def linear_reg_model(X, y):
     plot_test_hour(X_test_plot,y_test,y_pred)
 
 
-#linear_reg_model(X_lin,y)
-# ganska dåliga resultat -> R2 lågt och snittfel ligger på 43€ medan snittpris 57€ så stort fel
-#MSE: 1884.5908857839638
-#RMSE 43.411874939743896
+linear_reg_model(X,y)
+# ganska dåliga resultat -> R2 lågt och snittfel ligger på 41€ medan snittpris 57€ så stort fel
+#MSE: 1684.5131774229992
+#RMSE 41.04282126539304
 #Mean price is 57.33451622038929
-#R2 0.22868065604768573
+#R2 0.2956275990164542
 
 def rf_reg_model(X, y):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -105,7 +104,7 @@ def rf_reg_model(X, y):
     
     
 
-rf_reg_model(X_rf, y)
+rf_reg_model(X, y)
 
 #Nu mycket bättre prediktioner
 #MSE: 888.2003824841694
