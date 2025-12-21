@@ -114,6 +114,84 @@ def linear_reg_model(X, y):
 #Mean price is 57.33451622038929
 #R2 0.2956275990164542
 
+def compute_residuals(y_true, y_pred, dates):
+    """
+    Computes residuals and returns a DataFrame for analysis.
+
+    Args:
+        y_true (pd.Series): Actual target values (indexed).
+        y_pred (np.ndarray): Model predictions.
+        dates (pd.Series): Datetime values aligned with y_true.
+
+    Returns:
+        pd.DataFrame: DataFrame with Date, Actual, Predicted, Residual
+    """
+    residual_df = pd.DataFrame({
+        "Date": dates.values,
+        "Actual": y_true.values,
+        "Predicted": y_pred,
+    })
+
+    residual_df["Residual"] = residual_df["Actual"] - residual_df["Predicted"]
+    return residual_df
+
+
+def plot_residuals_over_time(residual_df):
+    """
+    Plots residuals over time.
+
+    Args:
+        residual_df (pd.DataFrame): Output from compute_residuals
+    """
+    plt.figure(figsize=(12, 4))
+    plt.plot(residual_df["Date"], residual_df["Residual"], alpha=0.6)
+    plt.axhline(0, color="red", linestyle="--")
+    plt.xlabel("Time")
+    plt.ylabel("Residual (EUR)")
+    plt.title("Residuals over time (actual - predicted)")
+    plt.show()
+
+def print_residual_summary(residual_df):
+    print("\nResidual summary:")
+    print(residual_df["Residual"].describe())
+
+    large_errors = residual_df.loc[
+        residual_df["Residual"].abs() > residual_df["Residual"].std() * 2
+    ]
+
+    print(f"\nNumber of large errors (>2 std): {len(large_errors)}")
+
+def error_contribution_top_percent(residual_df, top_percent=0.05):
+    """
+    Quantifies how much of the total squared error comes from the top X% prices.
+
+    Args:
+        residual_df (pd.DataFrame): Must contain 'Actual' and 'Residual'
+        top_percent (float): Fraction of highest prices to analyze (default 5%)
+
+    Returns:
+        None (prints results)
+    """
+    df_sorted = residual_df.sort_values("Actual")
+
+    # Threshold for top X%
+    cutoff_idx = int((1 - top_percent) * len(df_sorted))
+    threshold_price = df_sorted.iloc[cutoff_idx]["Actual"]
+
+    top_df = df_sorted[df_sorted["Actual"] >= threshold_price]
+    rest_df = df_sorted[df_sorted["Actual"] < threshold_price]
+
+    # Squared errors
+    total_se = np.sum(residual_df["Residual"] ** 2)
+    top_se = np.sum(top_df["Residual"] ** 2)
+    rest_se = np.sum(rest_df["Residual"] ** 2)
+
+    print(f"\nTop {int(top_percent*100)}% price threshold: {threshold_price:.2f} EUR")
+    print(f"Share of data points: {len(top_df) / len(df_sorted):.1%}")
+    print(f"Share of total squared error from top {int(top_percent*100)}% prices: {top_se / total_se:.1%}")
+    print(f"Share of total squared error from remaining {int((1-top_percent)*100)}% prices: {rest_se / total_se:.1%}")
+
+
 def rf_reg_model(X, y):
     split_idx = int(0.8 * len(X))
     
@@ -123,7 +201,12 @@ def rf_reg_model(X, y):
     y_train = y.iloc[:split_idx]
     y_test  = y.iloc[split_idx:]
     
-    rf_reg=RandomForestRegressor(n_estimators=200, random_state=42, n_jobs=-1).fit(X_train, y_train)
+    rf_reg=RandomForestRegressor(n_estimators=200, 
+                                 max_depth=10,
+                                 min_samples_leaf=10,
+#                                 random_state=42,
+                                 n_jobs=-1
+                                 ).fit(X_train, y_train)
     
     y_pred = rf_reg.predict(X_test)
 
@@ -136,13 +219,37 @@ def rf_reg_model(X, y):
     print(f"Mean price is {df['PriceEUR'].mean()}")
     print(f'R2 {r2}')
     
+    train_pred = rf_reg.predict(X_train)
+    test_pred  = rf_reg.predict(X_test)
+    
+    rmse_train = np.sqrt(mean_squared_error(y_train, train_pred))
+    rmse_test  = np.sqrt(mean_squared_error(y_test, test_pred))
+    
+    print(f"Train RMSE: {rmse_train}")
+    print(f"Test RMSE:  {rmse_test}")
+
+    
     X_test_plot = X_test['Hour'] 
     plot_test(y_test,y_pred) #wow sån stor skillnad mot innan
     plot_test_hour(X_test_plot,y_test,y_pred) #jättestor förändring här också
     
+    # Residual analysis
+    residual_df = compute_residuals(
+        y_true=y_test,
+        y_pred=y_pred,
+        dates=df.loc[y_test.index, "Date"]
+    )
     
+    plot_residuals_over_time(residual_df)
+    
+    print_residual_summary(residual_df)
+    
+    error_contribution_top_percent(residual_df, top_percent=0.05) 
+
 
 rf_reg_model(X, y)
+
+
 
 #med tidserie tillägget fick jag detta resultat:
 #MSE: 531.7507110493614
