@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.model_selection import train_test_split
+
 
 df = pd.read_csv('project_elc_temp.csv')
 
@@ -22,11 +22,35 @@ df = pd.read_csv('project_elc_temp.csv')
 # dvs ta bort denna rad när det är åtgärdat
 df['WindSpeed']=df['WindSpeed']/3.6 
 
+df["Date"] = pd.to_datetime(df["Date"])
+df = df.sort_values("Date").reset_index(drop=True)
+
+
+#Pris lagningar, 1 timme, 24 timmar, 168 timmar (1 vecka tillbaka)
+df["Price_lag_1"]   = df["PriceEUR"].shift(1)
+df["Price_lag_24"]  = df["PriceEUR"].shift(24)
+df["Price_lag_168"] = df["PriceEUR"].shift(168)
+
+df = df.dropna().reset_index(drop=True)
+
+
 #print(df.head())
 
-X = df[['Temperature', 'WindSpeed', 'Hour', 'Month', 'Weekday']]
+#jag lägger till den nya paramterna
+X = df[
+    [
+        "Temperature",
+        "WindSpeed",
+        "Hour",
+        "Month",
+        "Weekday",
+        "Price_lag_1",
+        "Price_lag_24",
+        "Price_lag_168",
+    ]
+]
+y = df["PriceEUR"]
 
-y=df['PriceEUR']
 
 def plot_test(y_test,y_pred):    
     
@@ -55,8 +79,16 @@ def plot_test_hour(hours, y_test, y_pred):
     plt.show()
     
 
+#den linära metoden måste ändras på här om den ska fungera nu med tid aspekten
+
 def linear_reg_model(X, y):
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    split_idx = int(0.8 * len(X))
+    
+    X_train = X.iloc[:split_idx]
+    X_test  = X.iloc[split_idx:]
+    
+    y_train = y.iloc[:split_idx]
+    y_test  = y.iloc[split_idx:]
     
     lin_reg = LinearRegression().fit(X_train, y_train)
     y_pred = lin_reg.predict(X_test)
@@ -67,7 +99,7 @@ def linear_reg_model(X, y):
     
     print(f'MSE: {mse}')
     print(f'RMSE {rmse}')
-    print(f'Mean price is {df['PriceEUR'].mean()}')
+    print(f"Mean price is {df['PriceEUR'].mean()}")
     print(f'R2 {r2}')
     
     X_test_plot = X_test['Hour'] 
@@ -75,7 +107,7 @@ def linear_reg_model(X, y):
     plot_test_hour(X_test_plot,y_test,y_pred)
 
 
-linear_reg_model(X,y)
+#linear_reg_model(X,y)
 # ganska dåliga resultat -> R2 lågt och snittfel ligger på 41€ medan snittpris 57€ så stort fel
 #MSE: 1684.5131774229992
 #RMSE 41.04282126539304
@@ -83,9 +115,15 @@ linear_reg_model(X,y)
 #R2 0.2956275990164542
 
 def rf_reg_model(X, y):
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    split_idx = int(0.8 * len(X))
     
-    rf_reg=RandomForestRegressor(n_estimators=100, random_state=42).fit(X_train, y_train)
+    X_train = X.iloc[:split_idx]
+    X_test  = X.iloc[split_idx:]
+    
+    y_train = y.iloc[:split_idx]
+    y_test  = y.iloc[split_idx:]
+    
+    rf_reg=RandomForestRegressor(n_estimators=200, random_state=42, n_jobs=-1).fit(X_train, y_train)
     
     y_pred = rf_reg.predict(X_test)
 
@@ -95,7 +133,7 @@ def rf_reg_model(X, y):
     
     print(f'MSE: {mse}')
     print(f'RMSE {rmse}')
-    print(f'Mean price is {df['PriceEUR'].mean()}')
+    print(f"Mean price is {df['PriceEUR'].mean()}")
     print(f'R2 {r2}')
     
     X_test_plot = X_test['Hour'] 
@@ -106,9 +144,8 @@ def rf_reg_model(X, y):
 
 rf_reg_model(X, y)
 
-#Nu mycket bättre prediktioner
-#MSE: 888.2003824841694
-#RMSE 29.802690859789312
-#Mean price is 57.33451622038929
-#R2 0.6286025871747887
-
+#med tidserie tillägget fick jag detta resultat:
+#MSE: 531.7507110493614
+#RMSE 23.059720532767983
+#Mean price is 57.001264460434555
+#R2 0.8580644218475701
