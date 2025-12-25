@@ -29,7 +29,6 @@ df["Price_lag_168"] = df["PriceEUR"].shift(168)
 df = df.dropna().reset_index(drop=True)
 
 
-#print(df.head())
 
 #jag lägger till den nya paramterna
 X = df[
@@ -212,44 +211,77 @@ def rf_reg_model(X, y):
     
     y_pred = rf_reg.predict(X_test)
 
-    mse = mean_squared_error(y_test, y_pred)
-    rmse =np.sqrt(mse)
-    r2 = r2_score(y_test, y_pred)
+    # mse = mean_squared_error(y_test, y_pred)
+    # rmse =np.sqrt(mse)
+    # r2 = r2_score(y_test, y_pred)
     
-    print(f'MSE: {mse}')
-    print(f'RMSE {rmse}')
-    print(f"Mean price is {df['PriceEUR'].mean()}")
-    print(f'R2 {r2}')
+    # print(f'MSE: {mse}')
+    # print(f'RMSE {rmse}')
+    # print(f"Mean price is {df['PriceEUR'].mean()}")
+    # print(f'R2 {r2}')
+    
+    # train_pred = rf_reg.predict(X_train)
+    # test_pred  = rf_reg.predict(X_test)
+    
+    # rmse_train = np.sqrt(mean_squared_error(y_train, train_pred))
+    # rmse_test  = np.sqrt(mean_squared_error(y_test, test_pred))
+    
+    # print(f"Train RMSE: {rmse_train}")
+    # print(f"Test RMSE:  {rmse_test}")
+
+    
+    
+    # # Residual analysis
+    # residual_df = compute_residuals(
+    #     y_true=y_test,
+    #     y_pred=y_pred,
+    #     dates=df.loc[y_test.index, "Date"]
+    # )
+    
+    # plot_residuals_over_time(residual_df)
+    
+    # print_residual_summary(residual_df)
+    
+    # error_contribution_top_percent(residual_df, top_percent=0.05) 
+    
+    return rf_reg, X_test, y_test, y_pred, df, X_train, y_train
+
+if __name__ == "__main__":
+
+    rf_reg, X_test, y_test, y_pred, df, X_train, y_train = rf_reg_model(X, y)
+    
+  
+    mse = mean_squared_error(y_test, y_pred)
+    rmse = np.sqrt(mse)
+    r2 = r2_score(y_test, y_pred)
     
     train_pred = rf_reg.predict(X_train)
     test_pred  = rf_reg.predict(X_test)
     
     rmse_train = np.sqrt(mean_squared_error(y_train, train_pred))
     rmse_test  = np.sqrt(mean_squared_error(y_test, test_pred))
+    print(f"Mean price is {df['PriceEUR'].mean()}")
+    
+    print(f'MSE: {mse}')
+    print(f'RMSE: {rmse}')
+    print(f'R2: {r2}')
     
     print(f"Train RMSE: {rmse_train}")
     print(f"Test RMSE:  {rmse_test}")
-
+    
+    # 3. Plotta (Nu gör vi det här nere, så appen slipper pop-up fönster)
+    plot_test(y_test, y_pred)
     
     X_test_plot = X_test['Hour'] 
-    plot_test(y_test,y_pred) #wow sån stor skillnad mot innan
-    plot_test_hour(X_test_plot,y_test,y_pred) #jättestor förändring här också
+    plot_test_hour(X_test_plot, y_test, y_pred)
     
-    # Residual analysis
-    residual_df = compute_residuals(
-        y_true=y_test,
-        y_pred=y_pred,
-        dates=df.loc[y_test.index, "Date"]
-    )
-    
+    # Residual analys
+    residual_df = compute_residuals(y_test, y_pred, df.loc[y_test.index, "Date"])
     plot_residuals_over_time(residual_df)
-    
     print_residual_summary(residual_df)
+    error_contribution_top_percent(residual_df)
     
-    error_contribution_top_percent(residual_df, top_percent=0.05) 
-
-
-rf_reg_model(X, y)
+    
 
 
 
