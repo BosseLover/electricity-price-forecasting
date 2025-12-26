@@ -94,18 +94,20 @@ def linear_reg_model(X, y):
     lin_reg = LinearRegression().fit(X_train, y_train)
     y_pred = lin_reg.predict(X_test)
     
-    mse = mean_squared_error(y_test, y_pred)
-    rmse =np.sqrt(mse)
-    r2 = r2_score(y_test, y_pred)
+    # mse = mean_squared_error(y_test, y_pred)
+    # rmse =np.sqrt(mse)
+    # r2 = r2_score(y_test, y_pred)
     
-    print(f'MSE: {mse}')
-    print(f'RMSE {rmse}')
-    print(f"Mean price is {df['PriceEUR'].mean()}")
-    print(f'R2 {r2}')
+    # print(f'MSE: {mse}')
+    # print(f'RMSE {rmse}')
+    # print(f"Mean price is {df['PriceEUR'].mean()}")
+    # print(f'R2 {r2}')
     
-    X_test_plot = X_test['Hour'] 
-    plot_test(y_test,y_pred)
-    plot_test_hour(X_test_plot,y_test,y_pred)
+    # X_test_plot = X_test['Hour'] 
+    # plot_test(y_test,y_pred)
+    # plot_test_hour(X_test_plot,y_test,y_pred)
+    
+    return lin_reg, X_test, y_test, y_pred, df,  X_train, y_train
 
 
 #linear_reg_model(X,y)
@@ -249,11 +251,17 @@ def rf_reg_model(X, y):
 if __name__ == "__main__":
 
     rf_reg, X_test, y_test, y_pred, df, X_train, y_train = rf_reg_model(X, y)
+    lin_reg, X_test_lin, y_test_lin, y_pred_lin, df_lin, X_train_lin, y_train_lin = linear_reg_model(X, y)
+
     
   
     mse = mean_squared_error(y_test, y_pred)
     rmse = np.sqrt(mse)
     r2 = r2_score(y_test, y_pred)
+    
+    mse_lin = mean_squared_error(y_test_lin, y_pred_lin)
+    rmse_lin = np.sqrt(mse_lin)
+    r2_lin = r2_score(y_test_lin, y_pred_lin)
     
     train_pred = rf_reg.predict(X_train)
     test_pred  = rf_reg.predict(X_test)
@@ -262,12 +270,16 @@ if __name__ == "__main__":
     rmse_test  = np.sqrt(mean_squared_error(y_test, test_pred))
     print(f"Mean price is {df['PriceEUR'].mean()}")
     
-    print(f'MSE: {mse}')
-    print(f'RMSE: {rmse}')
-    print(f'R2: {r2}')
+    print(f'MSE RF: {mse}')
+    print(f'RMSE RF: {rmse}')
+    print(f'R2 RF: {r2}')
     
-    print(f"Train RMSE: {rmse_train}")
-    print(f"Test RMSE:  {rmse_test}")
+    print(f'MSE LIN: {mse_lin}')
+    print(f'RMSE LIN: {rmse_lin}')
+    print(f'R2 LIN: {r2_lin}')
+    
+    print(f"Train RMSE RF: {rmse_train}")
+    print(f"Test RMSE RF:  {rmse_test}")
     
     # 3. Plotta (Nu gör vi det här nere, så appen slipper pop-up fönster)
     plot_test(y_test, y_pred)
