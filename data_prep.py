@@ -123,7 +123,7 @@ def process_and_merge_data():
     print(f"\nTotal rows ready for analysis: {len(df_total)}")
 
     # Save to CSV 
-    # df_total.to_csv("project_elc_temp.csv", index=False)
+    #df_total.to_csv("project_elc_temp.csv", index=False)
 
 # This block ensures the script runs only when executed directly
 if __name__ == "__main__":
