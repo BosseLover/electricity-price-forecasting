@@ -80,8 +80,6 @@ def plot_test_hour(hours, y_test, y_pred):
     plt.show()
     
 
-#den linära metoden måste ändras på här om den ska fungera nu med tid aspekten
-
 def linear_reg_model(X, y):
     split_idx = int(0.8 * len(X))
     
@@ -94,28 +92,28 @@ def linear_reg_model(X, y):
     lin_reg = LinearRegression().fit(X_train, y_train)
     y_pred = lin_reg.predict(X_test)
     
-    # mse = mean_squared_error(y_test, y_pred)
-    # rmse =np.sqrt(mse)
-    # r2 = r2_score(y_test, y_pred)
-    
-    # print(f'MSE: {mse}')
-    # print(f'RMSE {rmse}')
-    # print(f"Mean price is {df['PriceEUR'].mean()}")
-    # print(f'R2 {r2}')
-    
-    # X_test_plot = X_test['Hour'] 
-    # plot_test(y_test,y_pred)
-    # plot_test_hour(X_test_plot,y_test,y_pred)
-    
     return lin_reg, X_test, y_test, y_pred, df,  X_train, y_train
 
+def rf_reg_model(X, y):
+    split_idx = int(0.8 * len(X))
+    
+    X_train = X.iloc[:split_idx]
+    X_test  = X.iloc[split_idx:]
+    
+    y_train = y.iloc[:split_idx]
+    y_test  = y.iloc[split_idx:]
+    
+    rf_reg=RandomForestRegressor(n_estimators=200, 
+                                 max_depth=10,
+                                 min_samples_leaf=10,
+#                                random_state=42,
+                                 n_jobs=-1
+                                 ).fit(X_train, y_train)
+    
+    y_pred = rf_reg.predict(X_test)
+    
+    return rf_reg, X_test, y_test, y_pred, df, X_train, y_train
 
-#linear_reg_model(X,y)
-# ganska dåliga resultat -> R2 lågt och snittfel ligger på 41€ medan snittpris 57€ så stort fel
-#MSE: 1684.5131774229992
-#RMSE 41.04282126539304
-#Mean price is 57.33451622038929
-#R2 0.2956275990164542
 
 def compute_residuals(y_true, y_pred, dates):
     """
@@ -194,60 +192,6 @@ def error_contribution_top_percent(residual_df, top_percent=0.05):
     print(f"Share of total squared error from top {int(top_percent*100)}% prices: {top_se / total_se:.1%}")
     print(f"Share of total squared error from remaining {int((1-top_percent)*100)}% prices: {rest_se / total_se:.1%}")
 
-
-def rf_reg_model(X, y):
-    split_idx = int(0.8 * len(X))
-    
-    X_train = X.iloc[:split_idx]
-    X_test  = X.iloc[split_idx:]
-    
-    y_train = y.iloc[:split_idx]
-    y_test  = y.iloc[split_idx:]
-    
-    rf_reg=RandomForestRegressor(n_estimators=200, 
-                                 max_depth=10,
-                                 min_samples_leaf=10,
-#                                 random_state=42,
-                                 n_jobs=-1
-                                 ).fit(X_train, y_train)
-    
-    y_pred = rf_reg.predict(X_test)
-
-    # mse = mean_squared_error(y_test, y_pred)
-    # rmse =np.sqrt(mse)
-    # r2 = r2_score(y_test, y_pred)
-    
-    # print(f'MSE: {mse}')
-    # print(f'RMSE {rmse}')
-    # print(f"Mean price is {df['PriceEUR'].mean()}")
-    # print(f'R2 {r2}')
-    
-    # train_pred = rf_reg.predict(X_train)
-    # test_pred  = rf_reg.predict(X_test)
-    
-    # rmse_train = np.sqrt(mean_squared_error(y_train, train_pred))
-    # rmse_test  = np.sqrt(mean_squared_error(y_test, test_pred))
-    
-    # print(f"Train RMSE: {rmse_train}")
-    # print(f"Test RMSE:  {rmse_test}")
-
-    
-    
-    # # Residual analysis
-    # residual_df = compute_residuals(
-    #     y_true=y_test,
-    #     y_pred=y_pred,
-    #     dates=df.loc[y_test.index, "Date"]
-    # )
-    
-    # plot_residuals_over_time(residual_df)
-    
-    # print_residual_summary(residual_df)
-    
-    # error_contribution_top_percent(residual_df, top_percent=0.05) 
-    
-    return rf_reg, X_test, y_test, y_pred, df, X_train, y_train
-
 if __name__ == "__main__":
 
     rf_reg, X_test, y_test, y_pred, df, X_train, y_train = rf_reg_model(X, y)
@@ -288,12 +232,15 @@ if __name__ == "__main__":
     plot_test_hour(X_test_plot, y_test, y_pred)
     
     # Residual analys
-    residual_df = compute_residuals(y_test, y_pred, df.loc[y_test.index, "Date"])
+    residual_df = compute_residuals(y_test_lin, y_pred_lin, df.loc[y_test.index, "Date"])
     plot_residuals_over_time(residual_df)
     print_residual_summary(residual_df)
     error_contribution_top_percent(residual_df)
     
-    
+    residual_df = compute_residuals(y_test, y_pred, df.loc[y_test.index, "Date"])
+    plot_residuals_over_time(residual_df)
+    print_residual_summary(residual_df)
+    error_contribution_top_percent(residual_df)
 
 
 
