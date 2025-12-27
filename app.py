@@ -164,18 +164,18 @@ app.layout = html.Div(children= [
     html.Div([ 
         html.Div([
             dcc.Graph(id='scatter-graph')
-<<<<<<< HEAD
-            ]),
+# <<<<<<< HEAD
+#             ]),
         
-        html.Div([
-            dcc.Graph(id='importance-graph')
-        ])
+#         html.Div([
+#             dcc.Graph(id='importance-graph')
+#         ])
         
         
-   ])
+#    ])
     
             
-=======
+# =======
         ]),
         html.Div([
             dcc.Graph(id='importance-graph')
@@ -199,7 +199,7 @@ app.layout = html.Div(children= [
             "fontSize": "15px"
         }
     ),       
->>>>>>> c5bf1e62bcd5aa2ed73384ec5409707c42ea477d
+# >>>>>>> c5bf1e62bcd5aa2ed73384ec5409707c42ea477d
 ])
 
 def top_percent_error_share(df, top_percent=0.05):
