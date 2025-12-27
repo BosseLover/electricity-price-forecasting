@@ -125,13 +125,13 @@ app.layout = html.Div(children= [
     
     html.Div([
         dcc.Graph(id='time-series-graph')
-    ]),
+        ]),
     
     html.Div([
         
         html.Div([
             dcc.Graph(id='scatter-graph')
-        ]),
+            ]),
         
         html.Div([
             dcc.Graph(id='importance-graph')
@@ -141,7 +141,6 @@ app.layout = html.Div(children= [
    ])
     
             
-    
 ])
 
 @app.callback(
