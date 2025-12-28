@@ -151,14 +151,16 @@ def linear_reg_model(X, y):
     y_train : pd.Series
         Training target values.
     """
-    split_idx = int(0.8 * len(X))
+    split_idx = int(0.8 * len(X)) #split index at 80%
     
+    #Creating the training and test sets
     X_train = X.iloc[:split_idx]
     X_test  = X.iloc[split_idx:]
     
     y_train = y.iloc[:split_idx]
     y_test  = y.iloc[split_idx:]
     
+    #Linear regression
     lin_reg = LinearRegression().fit(X_train, y_train)
     y_pred = lin_reg.predict(X_test)
     
@@ -189,18 +191,20 @@ def rf_reg_model(X, y):
     y_train : pd.Series
         Training target values.
     """
-    split_idx = int(0.8 * len(X)) 
+    split_idx = int(0.8 * len(X)) #Split index at 80%
     
+    #Creating the training and test sets
     X_train = X.iloc[:split_idx]
     X_test  = X.iloc[split_idx:]
     
     y_train = y.iloc[:split_idx]
     y_test  = y.iloc[split_idx:]
     
+    #RandomForestRegression
     rf_reg=RandomForestRegressor(n_estimators=200, 
                                  max_depth=10,
                                  min_samples_leaf=10,
-#                                random_state=42,
+#                                random_state=42, #Randomness. Remove comment to make the reults the same everytime
                                  n_jobs=-1
                                  ).fit(X_train, y_train)
     
@@ -230,12 +234,15 @@ def compute_residuals(y_true, y_pred, dates):
     pd.DataFrame
         DataFrame containing Date, Actual, Predicted, and Residual.
     """
+    
+    #Creating the dataframe
     residual_df = pd.DataFrame({
         "Date": dates.values,
         "Actual": y_true.values,
         "Predicted": y_pred,
     })
 
+    #Calculating the residuals and adding them to the dataframe
     residual_df["Residual"] = residual_df["Actual"] - residual_df["Predicted"]
     return residual_df
 
@@ -269,6 +276,7 @@ def print_residual_summary(residual_df):
     print("\nResidual summary:")
     print(residual_df["Residual"].describe())
 
+    #Identify large prediction errors as residuals exceeding two standard deviations
     large_errors = residual_df.loc[
         residual_df["Residual"].abs() > residual_df["Residual"].std() * 2
     ]
@@ -325,11 +333,12 @@ if __name__ == "__main__":
     - Analyzes the contribution of extreme price events
     """
     
+    #The different models
     rf_reg, X_test, y_test, y_pred, df, X_train, y_train = rf_reg_model(X, y)
     lin_reg, X_test_lin, y_test_lin, y_pred_lin, df_lin, X_train_lin, y_train_lin = linear_reg_model(X, y)
 
     
-  
+    #Statistical metrics
     mse = mean_squared_error(y_test, y_pred)
     rmse = np.sqrt(mse)
     r2 = r2_score(y_test, y_pred)
@@ -343,6 +352,8 @@ if __name__ == "__main__":
     
     rmse_train = np.sqrt(mean_squared_error(y_train, train_pred))
     rmse_test  = np.sqrt(mean_squared_error(y_test, test_pred))
+    
+    #Presentation of statistical metrics
     print(f"Mean price is {df['PriceEUR'].mean()}")
     
     print(f'MSE RF: {mse}')
@@ -356,7 +367,7 @@ if __name__ == "__main__":
     print(f"Train RMSE RF: {rmse_train}")
     print(f"Test RMSE RF:  {rmse_test}")
     
-    # 3. Plotta (Nu gör vi det här nere, så appen slipper pop-up fönster)
+    #Plots 
     plot_test(y_test, y_pred)
     
     X_test_plot = X_test['Hour'] 

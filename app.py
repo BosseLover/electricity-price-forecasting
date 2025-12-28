@@ -3,16 +3,18 @@
 """
 Electricity Price Forecasting Dashboard
 
-Description:
-    This Dash application visualizes and compares two Machine Learning models 
-    (Random Forest and Linear Regression) for predicting electricity prices.
-    
-    It displays:
-    1. Key Performance Metrics (R2, RMSE, MAE).
-    2. A Time-Series plot of Actual vs. Predicted prices.
-    3. A Scatter plot for error analysis.
-    4. A Feature Importance chart (excluding lag-variables).
+This Dash application visualizes and compares two machine learning models
+(Random Forest and Linear Regression) for electricity price prediction.
 
+The dashboard provides:
+1. Key performance metrics (R2, RMSE, MAE)
+2. Time-series plots of actual vs. predicted prices
+3. Residual diagnostics over time
+4. Scatter plots for prediction accuracy
+5. Feature importance analysis (excluding lagged variables)
+6. An analysis of error concentration in extreme price events
+
+Author: Elin Garvare and Anton Holmberg
 """
 import numpy as np
 import pandas as pd
@@ -30,11 +32,15 @@ app = Dash(__name__)
 host = 'localhost'
 port = 8050
 
+# -------------------------------------------------------------------
+# Train models and generate predictions
+# -------------------------------------------------------------------
 
+# Train Random Forest and Linear Regression models
 rf_reg, X_test_rf, y_test_rf, y_pred_rf, df_rf, X_train_rf, y_train_rf = rf_reg_model(X, y)
 lin_reg, X_test_lin, y_test_lin, y_pred_lin, df_lin, X_train_lin, y_train_lin = linear_reg_model(X, y)
 
-#Results from the models
+# Store model results in DataFrames for visualization
 results_rf_df = pd.DataFrame({
     'Date': df_rf.loc[y_test_rf.index, 'Date'],
     'Actual': y_test_rf,
@@ -47,33 +53,62 @@ results_lin_df = pd.DataFrame({
     'Predicted': y_pred_lin
 }).sort_values('Date')
 
-#Residuals
+
+# -------------------------------------------------------------------
+# Residual calculation
+# -------------------------------------------------------------------
+
+# Residuals are defined as: actual price minus predicted price.
+# They are used for model diagnostics and error analysis.
 results_rf_df["Residual"] = results_rf_df["Actual"] - results_rf_df["Predicted"]
 results_lin_df["Residual"] = results_lin_df["Actual"] - results_lin_df["Predicted"]
 
 
+# -------------------------------------------------------------------
+# Feature importance preparation
+# -------------------------------------------------------------------
 
+# Random Forest feature importance
 rf_importance_df = pd.DataFrame({
-    'Feature': X.columns,
+    'Feature': X.columns,   
     'Importance': rf_reg.feature_importances_
 })
 
+# Remove lagged price variables to improve interpretability.
+# Lag variables dominate the importance and obscure the effect
+# of weather and calendar-based features.
 rf_importance_df = rf_importance_df[rf_importance_df['Feature'] != 'Price_lag_1']
 rf_importance_df = rf_importance_df[rf_importance_df['Feature'] != 'Price_lag_24']
 rf_importance_df = rf_importance_df[rf_importance_df['Feature'] != 'Price_lag_168']
 
 rf_importance_df = rf_importance_df.sort_values(by='Importance', ascending=True)
 
+# Linear Regression feature importance
 lin_importance_df = pd.DataFrame({
     'Feature': X.columns,
     'Importance': abs(lin_reg.coef_) 
 })
 
+# Remove lagged price variables to improve interpretability.
 lin_importance_df = lin_importance_df[lin_importance_df['Feature'] != 'Price_lag_1']
 lin_importance_df = lin_importance_df[lin_importance_df['Feature'] != 'Price_lag_24']
 lin_importance_df = lin_importance_df[lin_importance_df['Feature'] != 'Price_lag_168']
 
 lin_importance_df = lin_importance_df.sort_values(by='Importance', ascending=True)
+
+
+# -------------------------------------------------------------------
+# Dashboard layout
+# -------------------------------------------------------------------
+
+# The layout is structured top-down:
+# 1. Title and model selector
+# 2. Key performance metrics
+# 3. Time-series predictions
+# 4. Residual diagnostics and interpretation
+# 5. Error concentration analysis
+# 6. Prediction accuracy and feature importance
+
 
 colors = {
     'background': '#ffffff', 
@@ -82,6 +117,7 @@ colors = {
 
 app.layout = html.Div(children= [
     
+    # 1. Title and model selector
     html.H1(
     children = 'Electricity Price Forecasting', 
     style= {'textAlign': 'center','background' : colors['background'], 'color' : colors['text']}),  
@@ -103,6 +139,7 @@ app.layout = html.Div(children= [
         )
         ]),
     
+    # 2. Key performance metrics
     html.Div([
         html.Div([
             html.H4('R2 Score'),
@@ -118,10 +155,12 @@ app.layout = html.Div(children= [
         ])
     ]),
     
+    # 3. Time-series predictions
     html.Div([
         dcc.Graph(id='time-series-graph')
         ]),
     
+    # 4. Residual diagnostics and interpretation
     html.Div([
         dcc.Graph(id="residuals-graph")
     ]),
@@ -147,6 +186,7 @@ app.layout = html.Div(children= [
         }
     ),
     
+    # 5. Error concentration analysis
     html.Div(id="top-error-text"),
     
     html.Div(
@@ -160,22 +200,12 @@ app.layout = html.Div(children= [
             "fontSize": "15px"
         }
     ),
-
+    
+    # 6. Prediction accuracy and feature importance
     html.Div([ 
         html.Div([
             dcc.Graph(id='scatter-graph')
-# <<<<<<< HEAD
-#             ]),
-        
-#         html.Div([
-#             dcc.Graph(id='importance-graph')
-#         ])
-        
-        
-#    ])
-    
             
-# =======
         ]),
         html.Div([
             dcc.Graph(id='importance-graph')
@@ -189,7 +219,9 @@ app.layout = html.Div(children= [
                 style={"fontWeight": "bold", "marginBottom": "4px"}
             ),
             html.P(
-                "We choose not to include the timelag variables as they were very dominating and made it alot harder to compare the other variables."
+                    "We choose not to include the time-lag variables,"
+                    " as they are highly dominant and make it more difficult"
+                    " to compare the influence of the remaining features."
                 )
         ],
         style={
@@ -199,12 +231,27 @@ app.layout = html.Div(children= [
             "fontSize": "15px"
         }
     ),       
-# >>>>>>> c5bf1e62bcd5aa2ed73384ec5409707c42ea477d
 ])
 
 def top_percent_error_share(df, top_percent=0.05):
     """
-    Returns the share of total squared error coming from the top {top_procent}% highest prices.
+    Computes the share of total squared error contributed by the
+    top X% highest electricity prices.
+
+    This metric highlights whether prediction errors are dominated
+    by extreme price events rather than typical observations.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Must contain 'Actual' and 'Residual' columns.
+    top_percent : float, optional
+        Fraction of highest prices to consider (default is 0.05).
+
+    Returns
+    -------
+    float
+        Share of total squared error attributed to the top X% prices.
     """
     df_sorted = df.sort_values("Actual")
 
@@ -236,15 +283,27 @@ def top_percent_error_share(df, top_percent=0.05):
 
 def update_all_graphs(selected_model):
     """
-    Updates all dashboard components based on the user's model selection.
+    Updates all dashboard components based on the selected model.
 
-    Args:
-        selected_model (str): 'RF' for Random Forest or 'LIN' for Linear Regression.
+    Depending on the selection ('RF', 'LIN', or 'BOTH'), this function:
+    - Updates all plots
+    - Computes appropriate performance metrics
+    - Displays residual diagnostics
+    - Quantifies the contribution of extreme price events to model error
 
-    Returns:
-        tuple: Contains 3 Plotly figures (Time-series, Scatter, Bar) 
-               and 3 strings for the metric displays (R2, RMSE, MAE).
+    Parameters
+    ----------
+    selected_model : str
+        Model selection from the dropdown menu:
+        'RF', 'LIN', or 'BOTH'.
+
+    Returns
+    -------
+    tuple
+        Updated figures, metric values, and explanatory text
+        for all dashboard components.
     """
+    
     color_lin = '#1abc9c'
     color_rf  = '#1f77b4'
 
@@ -252,11 +311,11 @@ def update_all_graphs(selected_model):
         df = results_rf_df
         imp_df = rf_importance_df
         main_color = color_rf 
+        
     elif selected_model == 'LIN':
         df = results_lin_df
         imp_df = lin_importance_df
         main_color = color_lin
-        
     
     if selected_model == 'BOTH':
         # Linear metrics
@@ -464,12 +523,6 @@ def update_all_graphs(selected_model):
             }
         )
     )
-
-
-    
-    
-
-
 #%%
 
 def open_browser():
