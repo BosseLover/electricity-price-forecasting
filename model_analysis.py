@@ -1,9 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Sat Dec 20 17:01:42 2025
+Advanced Python Project – Electricity Price Forecasting
 
-@author: elingarvare
+This script builds and evaluates two predictive models:
+- Linear Regression
+- Random Forest Regression
+
+The models are trained on historical electricity prices combined with
+weather and time-based features. The script includes:
+- Feature engineering with lagged prices
+- Model training and evaluation
+- Residual analysis
+- Analysis of error concentration in extreme price events
+
+Author: Elin Garvare and Anton Holmberg
+Created: Sat Dec 20, 2025
 """
 
 import pandas as pd
@@ -15,28 +27,34 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, r2_score
 
 
+# -------------------------------------------------------------------
+# Data loading and preprocessing
+# -------------------------------------------------------------------
+
+# Load dataset
 df = pd.read_csv('project_elc_temp.csv')
 
-# Detta måste vi ändra för det är redan i data_prep men filen i repot gör det 
-# inte så den måste sparas ner på nytt
-# dvs ta bort denna rad när det är åtgärdat
-df['WindSpeed']=df['WindSpeed']/3.6 
-
+# Convert Date column to datetime and ensure chronological order
 df["Date"] = pd.to_datetime(df["Date"])
 df = df.sort_values("Date").reset_index(drop=True)
 
-
-#Pris lagningar, 1 timme, 24 timmar, 168 timmar (1 vecka tillbaka)
-df["Price_lag_1"]   = df["PriceEUR"].shift(1)
-df["Price_lag_24"]  = df["PriceEUR"].shift(24)
+# Create lagged price features:
+# - 1 hour lag
+# - 24 hour lag (daily pattern)
+# - 168 hour lag (weekly pattern)
+df["Price_lag_1"] = df["PriceEUR"].shift(1)
+df["Price_lag_24"] = df["PriceEUR"].shift(24)
 df["Price_lag_168"] = df["PriceEUR"].shift(168)
 
+# Remove rows with missing values caused by lagging
 df = df.dropna().reset_index(drop=True)
 
 
-#print(df.head())
+# -------------------------------------------------------------------
+# Feature selection
+# -------------------------------------------------------------------
 
-#jag lägger till den nya paramterna
+# Feature matrix including weather, calendar effects, and price lags
 X = df[
     [
         "Temperature",
@@ -49,11 +67,26 @@ X = df[
         "Price_lag_168",
     ]
 ]
+
+# Target variable: electricity price
 y = df["PriceEUR"]
 
 
+
 def plot_test(y_test,y_pred):    
-    
+    """
+    Creates a scatter plot comparing actual and predicted prices.
+
+    A perfect prediction would place all points along the diagonal
+    reference line.
+
+    Parameters
+    ----------
+    y_test : pd.Series
+        True electricity prices from the test set.
+    y_pred : np.ndarray
+        Predicted prices from the model.
+    """
     
     plt.scatter(y_test, y_pred, color='blue', label='Predictions')
     
@@ -68,6 +101,21 @@ def plot_test(y_test,y_pred):
     
 
 def plot_test_hour(hours, y_test, y_pred):
+    """
+    Visualizes model performance across hours of the day.
+
+    Useful for assessing whether the model captures
+    intraday price patterns such as morning and evening peaks.
+
+    Parameters
+    ----------
+    hours : pd.Series
+        Hour-of-day values (0–23).
+    y_test : pd.Series
+        True electricity prices.
+    y_pred : np.ndarray
+        Predicted electricity prices.
+    """
     
     plt.scatter(hours, y_test, color='blue', label='Correct Price')
     plt.scatter(hours, y_pred, color='red', label='Predictions')
@@ -79,69 +127,135 @@ def plot_test_hour(hours, y_test, y_pred):
     plt.show()
     
 
-#den linära metoden måste ändras på här om den ska fungera nu med tid aspekten
-
 def linear_reg_model(X, y):
-    split_idx = int(0.8 * len(X))
+    """
+    Trains and evaluates a linear regression model using a time-based split.
+
+    The first 80% of the data is used for training and the remaining
+    20% for testing to avoid look-ahead bias.
+
+    Returns
+    -------
+    lin_reg : LinearRegression
+        Trained linear regression model.
+    X_test : pd.DataFrame
+        Test feature matrix.
+    y_test : pd.Series
+        True test target values.
+    y_pred : np.ndarray
+        Model predictions on the test set.
+    df : pd.DataFrame
+        Full dataset (for date alignment).
+    X_train : pd.DataFrame
+        Training feature matrix.
+    y_train : pd.Series
+        Training target values.
+    """
+    split_idx = int(0.8 * len(X)) #split index at 80%
     
+    #Creating the training and test sets
     X_train = X.iloc[:split_idx]
     X_test  = X.iloc[split_idx:]
     
     y_train = y.iloc[:split_idx]
     y_test  = y.iloc[split_idx:]
     
+    #Linear regression
     lin_reg = LinearRegression().fit(X_train, y_train)
     y_pred = lin_reg.predict(X_test)
     
-    mse = mean_squared_error(y_test, y_pred)
-    rmse =np.sqrt(mse)
-    r2 = r2_score(y_test, y_pred)
-    
-    print(f'MSE: {mse}')
-    print(f'RMSE {rmse}')
-    print(f"Mean price is {df['PriceEUR'].mean()}")
-    print(f'R2 {r2}')
-    
-    X_test_plot = X_test['Hour'] 
-    plot_test(y_test,y_pred)
-    plot_test_hour(X_test_plot,y_test,y_pred)
+    return lin_reg, X_test, y_test, y_pred, df,  X_train, y_train
 
+def rf_reg_model(X, y):
+    """
+    Trains and evaluates a Random Forest regression model
+    using a time-based train-test split.
 
-#linear_reg_model(X,y)
-# ganska dåliga resultat -> R2 lågt och snittfel ligger på 41€ medan snittpris 57€ så stort fel
-#MSE: 1684.5131774229992
-#RMSE 41.04282126539304
-#Mean price is 57.33451622038929
-#R2 0.2956275990164542
+    The model is regularized using limited tree depth and
+    minimum leaf size to reduce overfitting.
+
+    Returns
+    -------
+    rf_reg : RandomForestRegressor
+        Trained Random Forest model.
+    X_test : pd.DataFrame
+        Test feature matrix.
+    y_test : pd.Series
+        True test target values.
+    y_pred : np.ndarray
+        Model predictions on the test set.
+    df : pd.DataFrame
+        Full dataset (for date alignment).
+    X_train : pd.DataFrame
+        Training feature matrix.
+    y_train : pd.Series
+        Training target values.
+    """
+    split_idx = int(0.8 * len(X)) #Split index at 80%
+    
+    #Creating the training and test sets
+    X_train = X.iloc[:split_idx]
+    X_test  = X.iloc[split_idx:]
+    
+    y_train = y.iloc[:split_idx]
+    y_test  = y.iloc[split_idx:]
+    
+    #RandomForestRegression
+    rf_reg=RandomForestRegressor(n_estimators=200, 
+                                 max_depth=10,
+                                 min_samples_leaf=10,
+#                                random_state=42, #Randomness. Remove comment to make the reults the same everytime
+                                 n_jobs=-1
+                                 ).fit(X_train, y_train)
+    
+    y_pred = rf_reg.predict(X_test)
+    
+    return rf_reg, X_test, y_test, y_pred, df, X_train, y_train
+
 
 def compute_residuals(y_true, y_pred, dates):
     """
-    Computes residuals and returns a DataFrame for analysis.
+    Computes residuals for model evaluation.
 
-    Args:
-        y_true (pd.Series): Actual target values (indexed).
-        y_pred (np.ndarray): Model predictions.
-        dates (pd.Series): Datetime values aligned with y_true.
+    Residuals are defined as:
+        residual = actual - predicted
 
-    Returns:
-        pd.DataFrame: DataFrame with Date, Actual, Predicted, Residual
+    Parameters
+    ----------
+    y_true : pd.Series
+        Actual electricity prices.
+    y_pred : np.ndarray
+        Model predictions.
+    dates : pd.Series
+        Datetime values aligned with y_true.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame containing Date, Actual, Predicted, and Residual.
     """
+    
+    #Creating the dataframe
     residual_df = pd.DataFrame({
         "Date": dates.values,
         "Actual": y_true.values,
         "Predicted": y_pred,
     })
 
+    #Calculating the residuals and adding them to the dataframe
     residual_df["Residual"] = residual_df["Actual"] - residual_df["Predicted"]
     return residual_df
 
 
 def plot_residuals_over_time(residual_df):
     """
-    Plots residuals over time.
+    Plots residuals over time to identify systematic patterns,
+    volatility clustering, or regime changes.
 
-    Args:
-        residual_df (pd.DataFrame): Output from compute_residuals
+    Parameters
+    ----------
+    residual_df : pd.DataFrame
+        Output from compute_residuals().
     """
     plt.figure(figsize=(12, 4))
     plt.plot(residual_df["Date"], residual_df["Residual"], alpha=0.6)
@@ -152,9 +266,17 @@ def plot_residuals_over_time(residual_df):
     plt.show()
 
 def print_residual_summary(residual_df):
+    """
+    Prints summary statistics of residuals and identifies
+    large prediction errors.
+
+    Large errors are defined as residuals exceeding
+    two standard deviations.
+    """
     print("\nResidual summary:")
     print(residual_df["Residual"].describe())
 
+    #Identify large prediction errors as residuals exceeding two standard deviations
     large_errors = residual_df.loc[
         residual_df["Residual"].abs() > residual_df["Residual"].std() * 2
     ]
@@ -163,14 +285,23 @@ def print_residual_summary(residual_df):
 
 def error_contribution_top_percent(residual_df, top_percent=0.05):
     """
-    Quantifies how much of the total squared error comes from the top X% prices.
+    Quantifies how much of the total squared error originates
+    from the top X% highest electricity prices.
 
-    Args:
-        residual_df (pd.DataFrame): Must contain 'Actual' and 'Residual'
-        top_percent (float): Fraction of highest prices to analyze (default 5%)
+    This analysis highlights whether model errors are dominated
+    by extreme price events.
 
-    Returns:
-        None (prints results)
+    Parameters
+    ----------
+    residual_df : pd.DataFrame
+        Must contain 'Actual' and 'Residual'.
+    top_percent : float, optional
+        Fraction of highest prices to analyze (default is 0.05).
+
+    Returns
+    -------
+    None
+        Prints results to the console.
     """
     df_sorted = residual_df.sort_values("Actual")
 
@@ -191,33 +322,30 @@ def error_contribution_top_percent(residual_df, top_percent=0.05):
     print(f"Share of total squared error from top {int(top_percent*100)}% prices: {top_se / total_se:.1%}")
     print(f"Share of total squared error from remaining {int((1-top_percent)*100)}% prices: {rest_se / total_se:.1%}")
 
+if __name__ == "__main__":
+    """
+    Runs model training, evaluation, and residual diagnostics.
 
-def rf_reg_model(X, y):
-    split_idx = int(0.8 * len(X))
+    This block:
+    - Trains both models
+    - Prints standard performance metrics
+    - Visualizes predictions and residuals
+    - Analyzes the contribution of extreme price events
+    """
     
-    X_train = X.iloc[:split_idx]
-    X_test  = X.iloc[split_idx:]
-    
-    y_train = y.iloc[:split_idx]
-    y_test  = y.iloc[split_idx:]
-    
-    rf_reg=RandomForestRegressor(n_estimators=200, 
-                                 max_depth=10,
-                                 min_samples_leaf=10,
-#                                 random_state=42,
-                                 n_jobs=-1
-                                 ).fit(X_train, y_train)
-    
-    y_pred = rf_reg.predict(X_test)
+    #The different models
+    rf_reg, X_test, y_test, y_pred, df, X_train, y_train = rf_reg_model(X, y)
+    lin_reg, X_test_lin, y_test_lin, y_pred_lin, df_lin, X_train_lin, y_train_lin = linear_reg_model(X, y)
 
+    
+    #Statistical metrics
     mse = mean_squared_error(y_test, y_pred)
-    rmse =np.sqrt(mse)
+    rmse = np.sqrt(mse)
     r2 = r2_score(y_test, y_pred)
     
-    print(f'MSE: {mse}')
-    print(f'RMSE {rmse}')
-    print(f"Mean price is {df['PriceEUR'].mean()}")
-    print(f'R2 {r2}')
+    mse_lin = mean_squared_error(y_test_lin, y_pred_lin)
+    rmse_lin = np.sqrt(mse_lin)
+    r2_lin = r2_score(y_test_lin, y_pred_lin)
     
     train_pred = rf_reg.predict(X_train)
     test_pred  = rf_reg.predict(X_test)
@@ -225,34 +353,33 @@ def rf_reg_model(X, y):
     rmse_train = np.sqrt(mean_squared_error(y_train, train_pred))
     rmse_test  = np.sqrt(mean_squared_error(y_test, test_pred))
     
-    print(f"Train RMSE: {rmse_train}")
-    print(f"Test RMSE:  {rmse_test}")
-
+    #Presentation of statistical metrics
+    print(f"Mean price is {df['PriceEUR'].mean()}")
+    
+    print(f'MSE RF: {mse}')
+    print(f'RMSE RF: {rmse}')
+    print(f'R2 RF: {r2}')
+    
+    print(f'MSE LIN: {mse_lin}')
+    print(f'RMSE LIN: {rmse_lin}')
+    print(f'R2 LIN: {r2_lin}')
+    
+    print(f"Train RMSE RF: {rmse_train}")
+    print(f"Test RMSE RF:  {rmse_test}")
+    
+    #Plots 
+    plot_test(y_test, y_pred)
     
     X_test_plot = X_test['Hour'] 
-    plot_test(y_test,y_pred) #wow sån stor skillnad mot innan
-    plot_test_hour(X_test_plot,y_test,y_pred) #jättestor förändring här också
+    plot_test_hour(X_test_plot, y_test, y_pred)
     
-    # Residual analysis
-    residual_df = compute_residuals(
-        y_true=y_test,
-        y_pred=y_pred,
-        dates=df.loc[y_test.index, "Date"]
-    )
-    
+    # Residual analys
+    residual_df = compute_residuals(y_test_lin, y_pred_lin, df.loc[y_test.index, "Date"])
     plot_residuals_over_time(residual_df)
-    
     print_residual_summary(residual_df)
+    error_contribution_top_percent(residual_df)
     
-    error_contribution_top_percent(residual_df, top_percent=0.05) 
-
-
-rf_reg_model(X, y)
-
-
-
-#med tidserie tillägget fick jag detta resultat:
-#MSE: 531.7507110493614
-#RMSE 23.059720532767983
-#Mean price is 57.001264460434555
-#R2 0.8580644218475701
+    residual_df = compute_residuals(y_test, y_pred, df.loc[y_test.index, "Date"])
+    plot_residuals_over_time(residual_df)
+    print_residual_summary(residual_df)
+    error_contribution_top_percent(residual_df)

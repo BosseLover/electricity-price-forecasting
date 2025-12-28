@@ -1,9 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Dec 16 16:35:37 2025
+Data Collection and Preprocessing for Electricity Price Forecasting
 
-@author: elingarvare
+This script fetches and processes:
+- Hourly weather data (temperature and wind speed) from the Open-Meteo API
+- Hourly electricity spot prices from Energidataservice
+
+The datasets are merged on a common datetime index and enriched with
+time-based features (hour, month, weekday). The final dataset is prepared
+for downstream machine learning analysis.
+
+Author: Elin Garvare and Anton Holmberg
+Created: Tue Dec 16, 2025
 """
 
 import requests
@@ -20,7 +29,7 @@ def fetch_weather_data(start_date, end_date):
     Returns:
         pd.DataFrame: A DataFrame containing 'Date', 'Temperature', and 'WindSpeed'.
     """
-    # Define URL with parameters
+    # API endpoint with query parameters
     weather_url = (
         "https://archive-api.open-meteo.com/v1/archive"
         "?latitude=55.70584&longitude=13.19321"
@@ -28,7 +37,7 @@ def fetch_weather_data(start_date, end_date):
         "&hourly=temperature_2m,wind_speed_10m"
     )
     
-    # Fetch data
+    # Send request to API (fetch data)
     response = requests.get(weather_url)
     weather_json = response.json()
 
@@ -88,10 +97,11 @@ def process_and_merge_data():
     Main function to fetch, merge, and process weather and electricity datasets.
     
     Steps:
-    1. Fetches weather and electricity data.
-    2. Merges them on 'Date'.
-    3. Adds columns for Hour, Month, and Weekday.
-    4. Converts wind speed from km/h to m/s.
+    1. Retrieve weather and electricity datasets via APIs.
+    2. Merge datasets on the Date column using an inner join.
+    3. Remove missing values and ensure correct time ordering.
+    4. Add time-based features (hour, month, weekday).
+    5. Convert wind speed from km/h to m/s.
     """
     start = "2023-01-01"
     end = "2024-12-31"
@@ -122,9 +132,13 @@ def process_and_merge_data():
     print(df_total.head())
     print(f"\nTotal rows ready for analysis: {len(df_total)}")
 
-    # Save to CSV 
-    # df_total.to_csv("project_elc_temp.csv", index=False)
+    # Save to CSV (optional and only needed once)
+    #df_total.to_csv("project_elc_temp.csv", index=False) 
 
 # This block ensures the script runs only when executed directly
 if __name__ == "__main__":
+    """
+    Executes the full data collection and preprocessing pipeline
+    when the script is run directly.
+    """
     process_and_merge_data()
